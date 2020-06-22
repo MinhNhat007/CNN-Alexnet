@@ -1,33 +1,48 @@
-import numpy as np
-np.random.seed(42)
 import keras
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
 from keras.layers.normalization import BatchNormalization
-import tflearn.datasets.oxflower17 as oxflower17
-X, Y = oxflower17.load_data(one_hot=True)
+from keras.preprocessing.image import ImageDataGenerator
 
-model = Sequential()
+train_data_generator = ImageDataGenerator(rescale = 1./255,
+                                    shear_range = 0.2,
+                                    zoom_range = 0.2,
+                                    horizontal_flip = True)
 
-model.add(Conv2D(96, kernel_size=(11, 11), strides=(4, 4), activation='relu', input_shape=(224, 224, 3)))
-model.add(MaxPooling2D(pool_size=(3, 3), strides=(2, 2)))
-model.add(BatchNormalization())
+training_set = train_data_generator.flow_from_directory('dataset/training_set',
+                                                        target_size = (64, 64),
+                                                        batch_size = 32,
+                                                        class_mode = 'binary')
 
-model.add(Conv2D(256, kernel_size=(5, 5), activation='relu'))
-model.add(MaxPooling2D(pool_size=(3, 3), strides=(2, 2)))
-model.add(BatchNormalization())
+test_data_generator = ImageDataGenerator(rescale = 1./255)
+test_set = test_data_generator.flow_from_directory('dataset/test_set',
+                                            target_size = (64, 64),
+                                            batch_size = 32,
+                                            class_mode = 'binary')
 
-model.add(Flatten())
-model.add(Dense(4096, activation='tanh'))
-model.add(Dropout(0.5))
-model.add(Dense(4096, activation='tanh'))
-model.add(Dropout(0.5))
+cnn = Sequential()
 
-model.add(Dense(17, activation='softmax'))
+cnn.add(Conv2D(filters=32, kernel_size=3, activation='relu', input_shape=[64, 64, 3]))
+cnn.add(MaxPooling2D(pool_size=2, strides=2))
+cnn.add(BatchNormalization())
 
-model.summary()
+cnn.add(Conv2D(filters=32, kernel_size=3, activation='relu'))
+cnn.add(MaxPooling2D(pool_size=2, strides=2))
+cnn.add(BatchNormalization())
 
-model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+cnn.add(Conv2D(filters=32, kernel_size=3, activation='relu'))
+cnn.add(MaxPooling2D(pool_size=2, strides=2))
+cnn.add(BatchNormalization())
 
-model.fit(X, Y, batch_size=64, epochs=1, verbose=1, validation_split=0.1, shuffle=True)
-model.fit(X, Y, batch_size=64, epochs=10, verbose=1, validation_split=0.1, shuffle=True)
+cnn.add(Flatten())
+cnn.add(Dense(units=128, activation='relu'))
+cnn.add(Dropout(0.5))
+cnn.add(Dense(units=128, activation='relu', kernel_regularizer='l2'))
+
+cnn.add(Dense(units=1, activation='sigmoid'))
+
+cnn.summary()
+
+cnn.compile(optimizer = 'adam', loss = 'binary_crossentropy', metrics = ['accuracy'])
+
+history = cnn.fit(x = training_set, validation_data = test_set, epochs = 50)
